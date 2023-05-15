@@ -252,6 +252,7 @@ pub fn check_fields_derive(input: TokenStream) -> TokenStream {
             match inner_type_string.as_str() {
                 "u64" => "INTEGER",
                 "i8" => "INT8",
+                "i32" => "INT",
                 "String" => "TEXT",
                 "bool" => "BOOLEAN",
                 "NaiveDateTime" => "TIMESTAMP",

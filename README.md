@@ -1,5 +1,5 @@
 # Toursql
-```rut
+```rust
 
 use gluesql::prelude::{ Payload};
 pub trait Selectable<T>: Sized {

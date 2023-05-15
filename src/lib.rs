@@ -1,7 +1,7 @@
 use proc_macro::TokenStream;
 use quote::{quote, ToTokens};
 use quote::format_ident;
-use syn::{parse_macro_input, Data, DeriveInput,Field, Fields, Ident,Type,PathArguments, GenericArgument,parse_quote};
+use syn::{parse_macro_input, Data, DeriveInput,Field,Type,PathArguments, GenericArgument};
 use std::default::Default;
 
 
@@ -233,7 +233,7 @@ pub fn check_fields_derive(input: TokenStream) -> TokenStream {
         let field_type_string = quote! { #field_type }.to_string();
 
         // 检查 Option 类型并提取内部类型
-        let (is_option, inner_type_string) = if field_type_string.starts_with("Option") {
+        let (_is_option, inner_type_string) = if field_type_string.starts_with("Option") {
             let re = regex::Regex::new(r"Option\s*<\s*(.*)\s*>").unwrap();
             if let Some(caps) = re.captures(&field_type_string) {
                 (true, caps[1].to_string().replace(" ", ""))
@@ -288,7 +288,7 @@ pub fn check_fields_derive(input: TokenStream) -> TokenStream {
     
     
    //结构体默认值，为builder方法提供默认值
-    let default_values: Vec<_> = fields.iter().map(|f| {
+    let _default_values: Vec<_> = fields.iter().map(|f| {
         let field_type = &f.ty;
         let field_type_str = field_type.to_token_stream().to_string();
         if field_type_str.starts_with("Option") {
@@ -320,7 +320,7 @@ pub fn check_fields_derive(input: TokenStream) -> TokenStream {
     // let selectable_trait = format_ident!("{}Select", struct_name);
 
 
-    let field_data: Vec<_> = fields.iter().map(|f| {
+    let _field_data: Vec<_> = fields.iter().map(|f| {
         let field_name = f.ident.as_ref().unwrap();
         let field_type = &f.ty;
         let field_type_str = field_type.to_token_stream().to_string();

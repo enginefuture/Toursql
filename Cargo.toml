@@ -5,6 +5,7 @@ edition = "2021"
 authors = ["tabshi<tabshi@outlook.com>"]
 license = "MIT OR Apache-2.0"
 repository = "https://github.com/enginefuture/Toursql"
+description = "a derive macro for gluesql"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 

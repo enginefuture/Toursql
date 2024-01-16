@@ -1,0 +1,15 @@
+[package]
+name = "test-suite"
+version = "1.0.0"
+authors.workspace = true
+edition.workspace = true
+license.workspace = true
+documentation.workspace = true
+homepage.workspace = true
+repository.workspace = true
+description = "test-suites for tourinsql"
+
+[dependencies]
+tourin-derive.workspace = true
+warp.workspace = true
+gluesql.workspace = true

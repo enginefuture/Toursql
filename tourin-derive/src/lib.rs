@@ -1,7 +1,12 @@
+#![allow(non_snake_case)]
+#![allow(non_camel_case_types)]
+#![allow(unused_variables)] //允许未使用的变量
+#![allow(dead_code)] //允许未使用的代码
+#![allow(unused_imports)]
 use proc_macro::TokenStream;
 use quote::{quote, ToTokens};
 use quote::format_ident;
-use syn::{parse_macro_input, Data, DeriveInput,Field,Type,PathArguments, GenericArgument};
+use syn::{parse_macro_input, Data, DeriveInput,Field, Fields, Ident,Type,PathArguments, GenericArgument,parse_quote};
 use std::default::Default;
 
 
@@ -13,7 +18,7 @@ fn has_attribute(field: &Field, attribute_name: &str) -> bool {
     field
         .attrs
         .iter()
-        .any(|attr| attr.path.is_ident(attribute_name))
+        .any(|attr| attr.path().is_ident(attribute_name))
 }
 
 //判断是否是数字类型
@@ -122,10 +127,10 @@ pub fn check_fields_derive(input: TokenStream) -> TokenStream {
                             quote! { self.#field_name.as_ref().map(|value| format!("{}", value)) }
                         }
                         syn::GenericArgument::Type(syn::Type::Path(inner_type_path)) if inner_type_path.path.segments.first().unwrap().ident == "String" => {
-                            quote! { self.#field_name.as_ref().map(|value| format!("\"{}\"", value)) }
+                            quote! { self.#field_name.as_ref().map(|value| format!("\'{}\'", value)) }
                         }
                         syn::GenericArgument::Type(syn::Type::Path(inner_type_path)) if inner_type_path.path.segments.first().unwrap().ident == "Uuid" => {
-                            quote! { self.#field_name.as_ref().map(|value| format!("UUID(\"{})\"", value)) }
+                            quote! { self.#field_name.as_ref().map(|value| format!("UUID(\'{})\'", value)) }
                         }
                         syn::GenericArgument::Type(syn::Type::Path(inner_type_path)) if inner_type_path.path.segments.first().unwrap().ident == "Vec" => {
 
@@ -137,7 +142,7 @@ pub fn check_fields_derive(input: TokenStream) -> TokenStream {
                                         self.#field_name.as_ref().map(|values| {
                                             let mut output = String::new();
                                             for value in values {
-                                                output.push_str(&format!("\"{}\",", value));
+                                                output.push_str(&format!("\'{}\',", value));
                                             }
                                             output
                                         })
@@ -149,7 +154,7 @@ pub fn check_fields_derive(input: TokenStream) -> TokenStream {
                                 }
                                 else {
                                     // 生成其他类型的代码
-                                    quote! { self.#field_name.as_ref().map(|value| format!("\"{:?}\"", value)) }
+                                    quote! { self.#field_name.as_ref().map(|value| format!("\'{:?}\'", value)) }
                                 }
                             }else {
                                 // 生成其他类型的代码
@@ -187,14 +192,14 @@ pub fn check_fields_derive(input: TokenStream) -> TokenStream {
                     quote! { Some(format!("{}", self.#field_name)) }
                 }
                 syn::Type::Path(type_path) if type_path.path.segments.first().unwrap().ident == "String" => {
-                    quote! { Some(format!("\"{}\"", self.#field_name)) }
+                    quote! { Some(format!("\'{}\'", self.#field_name)) }
                 }
                 syn::Type::Path(type_path) if type_path.path.segments.first().unwrap().ident == "Uuid" => {
-                    quote! { Some(format!("UUID\"{}\"", self.#field_name)) }
+                    quote! { Some(format!("UUID\'{}\'", self.#field_name)) }
                 }
                 syn::Type::Path(type_path) if type_path.path.segments.first().unwrap().ident == "Vec" => {
                     // Assuming the inner type is Vec<i8>
-                    quote! { Some(format!("\"{:?}\"", self.#field_name)) }
+                    quote! { Some(format!("\'{:?}\'", self.#field_name)) }
                 }
                 syn::Type::Path(type_path) if type_path.path.segments.first().unwrap().ident == "HashMap" => {
                     // Assuming the inner type is HashMap<String, String>
@@ -233,7 +238,7 @@ pub fn check_fields_derive(input: TokenStream) -> TokenStream {
         let field_type_string = quote! { #field_type }.to_string();
 
         // 检查 Option 类型并提取内部类型
-        let (_is_option, inner_type_string) = if field_type_string.starts_with("Option") {
+        let (is_option, inner_type_string) = if field_type_string.starts_with("Option") {
             let re = regex::Regex::new(r"Option\s*<\s*(.*)\s*>").unwrap();
             if let Some(caps) = re.captures(&field_type_string) {
                 (true, caps[1].to_string().replace(" ", ""))
@@ -252,11 +257,12 @@ pub fn check_fields_derive(input: TokenStream) -> TokenStream {
             match inner_type_string.as_str() {
                 "u64" => "INTEGER",
                 "i8" => "INT8",
-                "i32" => "INT",
                 "String" => "TEXT",
                 "bool" => "BOOLEAN",
                 "NaiveDateTime" => "TIMESTAMP",
                 "Uuid" => "UUID",
+                "i64" => "INTEGER",
+                "f64" => "FLOAT",
                 _ => panic!("Unsupported type for SqlTable:{}",inner_type_string),
             }
         };
@@ -289,7 +295,7 @@ pub fn check_fields_derive(input: TokenStream) -> TokenStream {
     
     
    //结构体默认值，为builder方法提供默认值
-    let _default_values: Vec<_> = fields.iter().map(|f| {
+    let default_values: Vec<_> = fields.iter().map(|f| {
         let field_type = &f.ty;
         let field_type_str = field_type.to_token_stream().to_string();
         if field_type_str.starts_with("Option") {
@@ -321,7 +327,7 @@ pub fn check_fields_derive(input: TokenStream) -> TokenStream {
     // let selectable_trait = format_ident!("{}Select", struct_name);
 
 
-    let _field_data: Vec<_> = fields.iter().map(|f| {
+    let field_data: Vec<_> = fields.iter().map(|f| {
         let field_name = f.ident.as_ref().unwrap();
         let field_type = &f.ty;
         let field_type_str = field_type.to_token_stream().to_string();
@@ -329,6 +335,7 @@ pub fn check_fields_derive(input: TokenStream) -> TokenStream {
     }).collect();
 
     let mut u64_fields = Vec::new();
+    let mut i64_fields = Vec::new();
     let mut i8_fields = Vec::new();
     let mut i16_fields = Vec::new();
     let mut i32_fields = Vec::new();
@@ -376,9 +383,11 @@ pub fn check_fields_derive(input: TokenStream) -> TokenStream {
                         Option_fields.push((ident, inner_type_ident.to_string()));
                     }
                 }
-            } else if type_ident == "u64" {
+            }else if type_ident == "u64" {
                 u64_fields.push(ident);
-            } else if type_ident == "i8" {
+            }else if type_ident == "i64" {
+                i64_fields.push(ident);
+            }else if type_ident == "i8" {
                 i8_fields.push(ident);
             } else if type_ident == "i16" {
                 i16_fields.push(ident);
@@ -442,6 +451,24 @@ pub fn check_fields_derive(input: TokenStream) -> TokenStream {
             quote! {
                 if let gluesql::prelude::Value::I64(value) = value {
                     set_sturct.#field_ident = Some(*value as u64);
+                }
+            }
+        } else {
+            quote! {}
+        };
+        let i64_match = if inner_type_str == "i64" {
+            quote! {
+                if let gluesql::prelude::Value::I64(value) = value {
+                    set_sturct.#field_ident = Some(*value);
+                }
+            }
+        } else {
+            quote! {}
+        };
+        let f64_match = if inner_type_str == "f64" {
+            quote! {
+                if let gluesql::prelude::Value::F64(value) = value {
+                    set_sturct.#field_ident = Some(*value);
                 }
             }
         } else {
@@ -532,45 +559,6 @@ pub fn check_fields_derive(input: TokenStream) -> TokenStream {
             quote! {}
         };
 
-        // let vec_match = if inner_type_str.starts_with("Vec<") {
-        //     quote! {
-        //         if let gluesql::prelude::Value::List(list) = value {
-        //             println!("list: {:?}", list);
-        //             let mut vec = match &inner_type_str[..] {
-        //                 "Vec<i8>"=> {
-        //                     list.iter().filter_map(|item| {
-        //                         if let gluesql::prelude::Value::I64(i) = item {
-        //                             Some(*i as i8)
-        //                         } else {
-        //                             panic!("Unexpected item type in gluesql::prelude::Value::List, expected I8");
-        //                         }
-        //                     }).collect::<Vec<i8>>()
-        //                 },
-        //                 "Vec<String>" => {
-        //                     list.iter().filter_map(|item| {
-        //                         if let gluesql::prelude::Value::Str(s) = item {
-        //                             Some(s.clone())
-        //                         } else {
-        //                             panic!("Unexpected item type in gluesql::prelude::Value::List, expected Str");
-        //                         }
-        //                     }).collect::<Vec<String>>()
-        //                 },
-        //                 "Vec<Value>" => {
-        //                     list.iter().filter_map(|item| {
-        //                         println!("item: {:?}", item);
-        //                         Some(convert_glue_value_to_serde_value(item))
-        //                     }).collect::<Vec<serde_json::Value>>()
-        //                 },
-        //                 _ => panic!("Unsupported inner type for Vec"),
-        //             };
-        //             set_sturct.#field_ident = Some(vec);
-        //         }
-        //     }
-        // } else {
-        //     quote! {
-        //         panic!("Unsupported Option for Vec");
-        //     }
-        // };
         let hashmap_match = if inner_type_str == "HashMap" {
             quote! {
                 if let gluesql::prelude::Value::Map(value_map_glue) = value {
@@ -592,6 +580,8 @@ pub fn check_fields_derive(input: TokenStream) -> TokenStream {
         quote! {
             stringify!(#field_ident) => {
                 #u64_match
+                #i64_match
+                #f64_match
                 #i8_match
                 #string_match
                 #bool_match
@@ -616,7 +606,7 @@ pub fn check_fields_derive(input: TokenStream) -> TokenStream {
             }
 
             pub fn insert(&self) -> String {
-                let name = stringify!(#struct_name);
+                let name = stringify!(#struct_name).to_lowercase();
                 let fields = vec![#(format!("{:?}", stringify!(#field_names))),*].join(", ");
                 let field_values = vec![
                     #(match #field_values {
@@ -626,6 +616,41 @@ pub fn check_fields_derive(input: TokenStream) -> TokenStream {
                 ]
                 .join(", ");
                 format!("INSERT INTO {}({}) VALUES ({});", name, fields, field_values)
+            }
+
+            // 注意 结构体中无id字段无法使用此方法
+            // author: scx 更新接口 传入表名(表名与结构体存在大小写不同 暂不确定是否有问题 暂时手动传入) 更新条件hashmap如 { 'id': '2'} 测试支持i64 string其他未测试
+            pub fn update_table_by_id(&self, table_name: String,  id: u64) -> String{
+                let cur_field_values = vec![
+                    #(match #field_values {
+                        Some(value) => value.to_string(),
+                        None => "null".to_string(),
+                    }),*
+                ];
+                let field_names: Vec<String> = vec![#(format!("{:?}", stringify!(#field_names))),*];
+                let mut update_fields: Vec<String> = Vec::new();
+                for (index, field) in field_names.iter().enumerate(){
+                    // GLuesql更新不支持设置ID
+                    if field.as_str() == "\"id\""{
+                        continue;
+                    }
+                    let value = cur_field_values[index].clone();
+                    if value == "null".to_string(){
+                        continue;
+                    }
+                    let value_str = match field.as_str() {
+                        #(stringify!(#String_fields) => format!("'{}'", value),)*
+                        #(stringify!(#NaiveDateTime_fields) => format!("'{}'", value),)*
+                        #(stringify!(#Uuid_fields) => format!("'{}'", value),)*
+                        #(#option_string_fields_match)*
+                        _ => format!("{}", value),
+                    };
+                    let field_str = field.replace("\"", "");
+                    update_fields.push(format!("{} = {}", field_str, value_str));
+                }
+                let mut sql = format!("UPDATE {} SET {} WHERE id = {};", table_name, update_fields.join(","), id);
+                // sql = sql.replace("\"", "\'");
+                sql
             }
 
 
@@ -683,7 +708,7 @@ pub fn check_fields_derive(input: TokenStream) -> TokenStream {
                                 let row = &rows[0];
                                 let mut set_sturct = #struct_name::builder().build();
                                 for (i, label) in labels.iter().enumerate() {
-                                    let value = row.get_value(&labels, label).unwrap();
+                                    let value = &row[i].clone();
                                     match label.as_str() {
                                         #(
                                         stringify!(#u64_fields) => {
@@ -792,11 +817,14 @@ pub fn check_fields_derive(input: TokenStream) -> TokenStream {
                         
                     }
                     
+                    fn count(&self) -> String {
+                        let table_name = stringify!(#struct_name);
+                        format!("SELECT COUNT(*) FROM {}", table_name)
+                    }
                     
                     fn select(&self) -> String{
                         let table_name = stringify!(#struct_name);
-                        let field_names = vec![#(stringify!(#field_names)),*];
-                        let field_values = vec![#(format!("{:?}", self.0.#field_names)),*];                
+                        let field_names = vec![#(stringify!(#field_names)),*];       
                         let mut conditions = Vec::new();
                         for field in self.1.iter() {
                             let field_name = field;
@@ -816,6 +844,7 @@ pub fn check_fields_derive(input: TokenStream) -> TokenStream {
                     
                         // Remove "Some(" and ")" from the string
                         sql = sql.replace("Some(", "").replace(")", "");
+                        sql = sql.replace("\"", "\'");
                         sql
                     }
 
@@ -837,6 +866,7 @@ pub fn check_fields_derive(input: TokenStream) -> TokenStream {
                         }
                         let mut sql = format!("DELETE FROM {} WHERE {}", table_name, conditions.join(" AND ")); 
                         sql = sql.replace("Some(", "").replace(")", "");
+                        sql = sql.replace("\"", "\'");
                         sql
                     }
 
@@ -876,6 +906,7 @@ pub fn check_fields_derive(input: TokenStream) -> TokenStream {
 
                         let mut sql = format!("UPDATE {} SET {} WHERE {}", table_name, update_fields.join(", "), conditions.join(" AND "));
                         sql = sql.replace("Some(", "").replace(")", "");
+                        sql = sql.replace("\"", "\'");
                         Ok(sql)
                     }
 
@@ -912,7 +943,7 @@ pub fn check_fields_derive(input: TokenStream) -> TokenStream {
                         let row = &rows[0];
                         let mut set_sturct = #struct_name::builder().build();
                         for (i, label) in labels.iter().enumerate() {
-                            let value = row.get_value(&labels, label).unwrap();
+                            let value = &row[i].clone();
                             match label.as_str() {
                                 #(
                                 stringify!(#u64_fields) => {

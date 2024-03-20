@@ -4,44 +4,10 @@ pub mod traits;
 pub mod utils;
 pub use crate::utils::process_payload;
 use gluesql::prelude::{Value as Gvalue, *};
-use gluesql::sled_storage::sled;
-use lazy_static::lazy_static;
 pub use left_join::*;
 pub use schemaless_query::insert_schess;
 use std::collections::HashMap;
-use std::env;
-use std::path::PathBuf;
 use traits::Selectable;
-
-//获取项目根目录
-pub fn find_project_root() -> Option<PathBuf> {
-    let mut current_dir = env::current_dir().expect("查找项目根目录错误");
-
-    while !current_dir.join("workspace_root.txt").exists() {
-        if !current_dir.pop() {
-            // 已经到达文件系统的根，未找到workspace_root.txt
-            return None;
-        }
-    }
-
-    Some(current_dir)
-}
-
-lazy_static! {
-    pub static ref TEST_DB: Glue<SledStorage> = {
-        let root_path = find_project_root()
-            .expect("查找项目根目录错误. 请确保 'workspace_root.txt' 在项目根目录.");
-        let db_path = root_path.join("data/test");
-        let config = sled::Config::default()
-            .path(db_path)
-            .temporary(true)
-            .mode(sled::Mode::HighThroughput);
-        let mut storage = SledStorage::try_from(config).expect("SledStorage::new");
-        storage.set_transaction_timeout(Some(60000));
-        let glue = Glue::new(storage);
-        glue
-    };
-}
 
 pub type SLEDDB = Glue<SledStorage>;
 

@@ -11,5 +11,14 @@ description = "test-suites for tourinsql"
 
 [dependencies]
 tourin-derive.workspace = true
+tourin-db.workspace = true
 warp.workspace = true
 gluesql.workspace = true
+lazy_static.workspace = true
+tokio.workspace = true
+serde.workspace = true
+[dependencies-dev]
+warp.workspace = true
+tourin-derive.workspace = true
+tourin-db.workspace = true
+tokio.workspace = true
